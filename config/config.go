@@ -30,6 +30,7 @@ type Config struct {
 	Atlas           *AtlasConfig
 	Modules         []*Module
 	ProviderConfigs []*ProviderConfig
+	DataSources     []*DataSource
 	Resources       []*Resource
 	Variables       []*Variable
 	Outputs         []*Output
@@ -64,6 +65,33 @@ type ProviderConfig struct {
 	Name      string
 	Alias     string
 	RawConfig *RawConfig
+}
+
+// DataSource is the configuration for a data source.
+// A data source represents retrieving some data from an external source for
+// use elsewhere in a Terraform configuration, or computing some data
+// internally within a logical provider.
+type DataSource struct {
+	Name      string
+	Type      string
+	RawConfig *RawConfig
+	Provider  string
+	DependsOn []string
+}
+
+// Copy returns a copy of this data source. Helpful for avoiding shared
+// config pointers across multiple pieces of the graph that need to do
+// interpolation.
+func (d *DataSource) Copy() *DataSource {
+	n := &DataSource{
+		Name:      d.Name,
+		Type:      d.Type,
+		RawConfig: d.RawConfig.Copy(),
+		Provider:  d.Provider,
+		DependsOn: make([]string, len(d.DependsOn)),
+	}
+	copy(n.DependsOn, d.DependsOn)
+	return n
 }
 
 // A resource represents a single Terraform resource in the configuration.
@@ -205,6 +233,11 @@ func (r *Resource) Count() (int, error) {
 // A unique identifier for this resource.
 func (r *Resource) Id() string {
 	return fmt.Sprintf("%s.%s", r.Type, r.Name)
+}
+
+// A unique identifier for this data source.
+func (d *DataSource) Id() string {
+	return fmt.Sprintf("data.%s.%s", d.Type, d.Name)
 }
 
 // Validate does some basic semantic checking of the configuration.
