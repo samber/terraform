@@ -1070,7 +1070,7 @@ func (r *ResourceState) deepcopy() *ResourceState {
 	n := &ResourceState{
 		Type:         r.Type,
 		Dependencies: nil,
-		Primary:      r.Primary.deepcopy(),
+		Primary:      r.Primary.DeepCopy(),
 		Tainted:      nil,
 		Provider:     r.Provider,
 	}
@@ -1081,13 +1081,13 @@ func (r *ResourceState) deepcopy() *ResourceState {
 	if r.Tainted != nil {
 		n.Tainted = make([]*InstanceState, 0, len(r.Tainted))
 		for _, inst := range r.Tainted {
-			n.Tainted = append(n.Tainted, inst.deepcopy())
+			n.Tainted = append(n.Tainted, inst.DeepCopy())
 		}
 	}
 	if r.Deposed != nil {
 		n.Deposed = make([]*InstanceState, 0, len(r.Deposed))
 		for _, inst := range r.Deposed {
-			n.Deposed = append(n.Deposed, inst.deepcopy())
+			n.Deposed = append(n.Deposed, inst.DeepCopy())
 		}
 	}
 
@@ -1170,13 +1170,13 @@ func (i *InstanceState) init() {
 	i.Ephemeral.init()
 }
 
-func (i *InstanceState) deepcopy() *InstanceState {
+func (i *InstanceState) DeepCopy() *InstanceState {
 	if i == nil {
 		return nil
 	}
 	n := &InstanceState{
 		ID:        i.ID,
-		Ephemeral: *i.Ephemeral.deepcopy(),
+		Ephemeral: *i.Ephemeral.DeepCopy(),
 	}
 	if i.Attributes != nil {
 		n.Attributes = make(map[string]string, len(i.Attributes))
@@ -1250,7 +1250,7 @@ func (s *InstanceState) Equal(other *InstanceState) bool {
 // won't be available until apply, the value is replaced with the
 // computeID.
 func (s *InstanceState) MergeDiff(d *InstanceDiff) *InstanceState {
-	result := s.deepcopy()
+	result := s.DeepCopy()
 	if result == nil {
 		result = new(InstanceState)
 	}
@@ -1331,7 +1331,7 @@ func (e *EphemeralState) init() {
 	}
 }
 
-func (e *EphemeralState) deepcopy() *EphemeralState {
+func (e *EphemeralState) DeepCopy() *EphemeralState {
 	if e == nil {
 		return nil
 	}
