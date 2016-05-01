@@ -41,6 +41,7 @@ func (t *ConfigTransformer) Transform(g *Graph) error {
 			len(config.ProviderConfigs)+
 			len(config.Modules)+
 			len(config.Resources)+
+			len(config.DataSources)+
 			len(config.Outputs))*2)
 
 	// Write all the variables out
@@ -62,6 +63,14 @@ func (t *ConfigTransformer) Transform(g *Graph) error {
 		nodes = append(nodes, &GraphNodeConfigResource{
 			Resource: r,
 			Path:     g.Path,
+		})
+	}
+
+	// Write all the data sources out
+	for _, d := range config.DataSources {
+		nodes = append(nodes, &GraphNodeConfigDataSource{
+			DataSource: d,
+			Path:       g.Path,
 		})
 	}
 
@@ -115,6 +124,8 @@ func varNameForVar(raw config.InterpolatedVariable) string {
 		return fmt.Sprintf("module.%s.output.%s", v.Name, v.Field)
 	case *config.ResourceVariable:
 		return v.ResourceId()
+	case *config.DataSourceVariable:
+		return v.DataSourceId()
 	case *config.UserVariable:
 		return fmt.Sprintf("var.%s", v.Name)
 	default:
