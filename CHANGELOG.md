@@ -33,6 +33,8 @@ IMPROVEMENTS:
  * provider/vsphere: Add support for IPV6 to `vsphere_virtual_machine` [GH-6457]
  * remote/s3: Logic for loading credentials now follows the same [conventions as AWS provider](https://www.terraform.io/docs/providers/aws/index.html#authentication)
     which means it also supports EC2 role auth and session token (e.g. assumed IAM Roles) [GH-5270]
+ * provider/clc: Fix optional server password [GH-6414]
+ * provider/clc: Add support for hyperscale and bareMetal server types and package installation
 
 BUG FIXES:
 
