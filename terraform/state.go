@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/satori/go.uuid"
+
 	"github.com/hashicorp/terraform/config"
 )
 
@@ -34,6 +36,14 @@ type State struct {
 	// the State file. It is used to detect potentially conflicting
 	// updates.
 	Serial int64 `json:"serial"`
+
+	// Lineage is set when a new, blank state is created and then
+	// never updated. This allows us to determine whether the serials
+	// of two states can be meaningfully compared.
+	// Apart from the guarantee that collisions between two lineages
+	// are very unlikely, this value is opaque and external callers
+	// should only compare lineage strings byte-for-byte for equality.
+	Lineage string `json:"lineage,omitempty"`
 
 	// Remote is used to track the metadata required to
 	// pull and push state files from a remote storage endpoint.
@@ -239,6 +249,68 @@ func (s *State) Equal(other *State) bool {
 	return true
 }
 
+type StateAgeComparison int
+
+const (
+	StateAgeEqual         StateAgeComparison = 0
+	StateAgeReceiverNewer StateAgeComparison = 1
+	StateAgeReceiverOlder StateAgeComparison = -1
+)
+
+// CompareAges compares one state with another for which is "older".
+//
+// This is a simple check using the state's serial, and is thus only as
+// reliable as the serial itself. In the normal case, only one state
+// exists for a given combination of lineage/serial, but Terraform
+// does not guarantee this and so the result of this method should be
+// used with care.
+//
+// Returns an integer that is negative if the receiver is older than
+// the argument, positive if the converse, and zero if they are equal.
+// An error is returned if the two states are not of the same lineage,
+// in which case the integer returned has no meaning.
+func (s *State) CompareAges(other *State) (StateAgeComparison, error) {
+
+	// nil states are "older" than actual states
+	switch {
+	case s != nil && other == nil:
+		return StateAgeReceiverNewer, nil
+	case s == nil && other != nil:
+		return StateAgeReceiverOlder, nil
+	case s == nil && other == nil:
+		return StateAgeEqual, nil
+	}
+
+	if !s.SameLineage(other) {
+		return StateAgeEqual, fmt.Errorf(
+			"can't compare two states of differing lineage",
+		)
+	}
+
+	switch {
+	case s.Serial < other.Serial:
+		return StateAgeReceiverOlder, nil
+	case s.Serial > other.Serial:
+		return StateAgeReceiverNewer, nil
+	default:
+		return StateAgeEqual, nil
+	}
+}
+
+// SameLineage returns true only if the state given in argument belongs
+// to the same "lineage" of states as the reciever.
+func (s *State) SameLineage(other *State) bool {
+	// If one of the states has no lineage then it is assumed to predate
+	// this concept, and so we'll accept it as belonging to any lineage
+	// so that a lineage string can be assigned to newer versions
+	// without breaking compatibility with older versions.
+	if s.Lineage == "" || other.Lineage == "" {
+		return true
+	}
+
+	return s.Lineage == other.Lineage
+}
+
 // DeepCopy performs a deep copy of the state structure and returns
 // a new structure.
 func (s *State) DeepCopy() *State {
@@ -247,6 +319,7 @@ func (s *State) DeepCopy() *State {
 	}
 	n := &State{
 		Version: s.Version,
+		Lineage: s.Lineage,
 		Serial:  s.Serial,
 		Modules: make([]*ModuleState, 0, len(s.Modules)),
 	}
@@ -290,6 +363,16 @@ func (s *State) init() {
 		}
 		root.init()
 		s.Modules = []*ModuleState{root}
+	}
+	s.EnsureHasLineage()
+}
+
+func (s *State) EnsureHasLineage() {
+	if s.Lineage == "" {
+		s.Lineage = uuid.NewV4().String()
+		log.Printf("[DEBUG] New state was assigned lineage %q\n", s.Lineage)
+	} else {
+		log.Printf("[TRACE] Preserving existing state lineage %q\n", s.Lineage)
 	}
 }
 
@@ -1255,6 +1338,11 @@ func WriteState(d *State, dst io.Writer) error {
 func upgradeV1State(old *StateV1) (*State, error) {
 	s := &State{}
 	s.init()
+
+	// "lineage" was not a concept in V1, so empty out the new lineage
+	// that s.init() just placed there or else different upgraders
+	// of the same state will end up with non-compatible lineages.
+	s.Lineage = ""
 
 	// Old format had no modules, so we migrate everything
 	// directly into the root module.
