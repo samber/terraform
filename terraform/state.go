@@ -185,11 +185,18 @@ func (s *State) ModuleOrphans(path []string, c *config.Config) [][]string {
 
 // Empty returns true if the state is empty.
 func (s *State) Empty() bool {
-	if s == nil {
+	switch {
+	case s == nil:
 		return true
+	case len(s.Modules) == 0:
+		return true
+	case len(s.Modules) == 1 && len(s.Modules[0].Resources) == 0:
+		// If we only have one (presumably root) module and it has no resources
+		// then that's suitably empty, too.
+		return true
+	default:
+		return false
 	}
-
-	return len(s.Modules) == 0
 }
 
 // IsRemote returns true if State represents a state that exists and is

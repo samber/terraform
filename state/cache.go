@@ -52,10 +52,18 @@ func (s *CacheState) RefreshState() error {
 		return err
 	}
 
-	// Handle the matrix of cases that can happen when comparing these
-	// two states.
 	cached := s.Cache.State()
 	durable := s.Durable.State()
+
+	// If the two states are not of the same lineage then that's
+	// always a conflict because the serials are not comparable.
+	if cached != nil && durable != nil && !cached.SameLineage(durable) {
+		s.refreshResult = CacheRefreshConflict
+		return nil
+	}
+
+	// Handle the matrix of cases that can happen when comparing these
+	// two states.
 	switch {
 	case cached == nil && durable == nil:
 		// Initialized
