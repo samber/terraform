@@ -628,7 +628,7 @@ func resourceAwsElasticacheReplicationGroupDelete(d *schema.ResourceData, meta i
 	log.Printf("[DEBUG] Waiting for deletion: %v", d.Id())
 	stateConf := &resource.StateChangeConf{
 		Pending:    []string{"creating", "available", "deleting"},
-		Target:     []string{""},
+		Target:     []string{},
 		Refresh:    cacheClusterReplicationGroupStateRefreshFunc(conn, d.Id(), "", []string{}),
 		Timeout:    15 * time.Minute,
 		Delay:      20 * time.Second,
@@ -651,7 +651,8 @@ func cacheClusterReplicationGroupStateRefreshFunc(conn *elasticache.ElastiCache,
 		if err != nil {
 			apierr := err.(awserr.Error)
 			log.Printf("[DEBUG] message: %v, code: %v", apierr.Message(), apierr.Code())
-			if apierr.Message() == fmt.Sprintf("Cluster ReplicationGroup not found: %v", replicationGroupId) {
+
+			if apierr.Code() == "ReplicationGroupNotFoundFault" {
 				log.Printf("[DEBUG] Detect deletion")
 				return nil, "", nil
 			}
